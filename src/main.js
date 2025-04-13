@@ -1,75 +1,124 @@
-import './style.css'
-import javascriptLogo from './javascript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.js'
-
-document.querySelector('#app').innerHTML = `
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-      <img src="${javascriptLogo}" class="logo vanilla" alt="JavaScript logo" />
-    </a>
-    <h1>Hello Vite!</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite logo to learn more
-    </p>
-  </div>
-`
-
-setupCounter(document.querySelector('#counter'))
-
 document.addEventListener('DOMContentLoaded', () => {
-  const searchInput = document.getElementById('searchInput');
-  const searchButton = document.getElementById('searchButton');
-  const bookList = document.getElementById('bookList');
-  const bookDetails = document.getElementById('bookDetails');
+  const searchInput = document.getElementById('search-input');
+  const searchButton = document.getElementById('search-button');
+  const animeListElement = document.getElementById('anime-list');
+  const animeDetailsElement = document.getElementById('anime-details');
 
   searchButton.addEventListener('click', () => {
-      const query = searchInput.value;
-      fetchBooks(query);
+    const variables = {
+      search: searchInput.value
+    };
+    fetchAnime(variables);
+  });
+  
+  searchInput.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      const variables = {
+        search: searchInput.value
+      };
+      fetchAnime(variables);
+    }
   });
 
-  async function fetchBooks(query) {
-      try {
-          const response = await fetch(`https://openlibrary.org/search.json?q=${query}`);
-          const data = await response.json();
-          displayBooks(data.docs);
-      } catch (error) {
-          console.error('Error fetching books:', error);
-      }
-  }
-
-  function displayBooks(books) {
-      bookList.innerHTML = '';
-      books.forEach(book => {
-          const li = document.createElement('li');
-          li.textContent = book.title;
-          li.addEventListener('click', () => fetchBookDetails(book.key));
-          bookList.appendChild(li);
-      });
-  }
-
-  async function fetchBookDetails(bookKey) {
-      try {
-          const response = await fetch(`https://openlibrary.org${bookKey}.json`);
-          const data = await response.json();
-          displayBookDetails(data);
-      } catch (error) {
-          console.error('Error fetching book details:', error);
-      }
-  }
-
-  function displayBookDetails(book) {
-      bookDetails.innerHTML = `
-          <h2>${book.title}</h2>
-          <p><strong>Authors:</strong> ${book.authors ? book.authors.map(author => author.name).join(', ') : 'N/A'}</p>
-          <p><strong>First Publish Year:</strong> ${book.first_publish_year || 'N/A'}</p>
-          <p><strong>Number of Pages:</strong> ${book.number_of_pages_median || 'N/A'}</p>
+  // Функция для получения списка аниме
+  async function fetchAnime(variables) {
+    try {
+      const query = `
+        query ($id: Int, $search: String) {
+          Page(page: 1, perPage: 10) {
+            media(id: $id, type: ANIME, search: $search) {
+              id
+              title {
+                romaji
+              }
+            }
+          }
+        }
       `;
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          variables: variables
+        }),
+      });
+      const data = await response.json();
+      const anime = data.data.Page.media;
+      displayAnime(anime);
+    } catch (error) {
+      console.error('Ошибка при получении данных:', error);
+    }
+  }
+
+  // Функция для отображения списка аниме
+  function displayAnime(anime) {
+    if (anime.length === 0) {
+      animeListElement.innerHTML = '<p>Аниме не найдено</p>';
+      return;
+    }
+    animeListElement.innerHTML = '';
+    anime.forEach(anime => {
+      const listItem = document.createElement('li');
+      listItem.textContent = anime.title.romaji;
+      listItem.addEventListener('click', () => fetchAnimeDetails(anime.id));
+      animeListElement.appendChild(listItem);
+    });
+  }
+
+  // Функция для получения деталей аниме
+  async function fetchAnimeDetails(animeId) {
+    try {
+      const query = `
+        query ($id: Int) {
+          Media(id: $id, type: ANIME) {
+            title {
+              romaji
+            }
+            description
+            coverImage {
+              large
+            }
+            genres
+            averageScore
+          }
+        }
+      `;
+      const variables = {
+        id: animeId,
+      };
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          variables: variables,
+        }),
+      });
+      const data = await response.json();
+      const anime = data.data.Media;
+      displayAnimeDetails(anime);
+    } catch (error) {
+      console.error('Ошибка при получении данных:', error);
+    }
+  }
+
+  // Функция для отображения деталей аниме
+  function displayAnimeDetails(anime) {
+    animeDetailsElement.innerHTML = `
+      <img src="${anime.coverImage.large}" alt="${anime.title.romaji}">
+      <div>
+        <h2>${anime.title.romaji}</h2>
+        <p><strong>Описание:</strong> ${anime.description.replace(/<br>/g, '\n')}</p>
+        <p><strong>Жанры:</strong> ${anime.genres.join(', ')}</p>
+        <p><strong>Средний рейтинг:</strong> ${anime.averageScore || 'Нет данных'}</p>
+      </div>
+    `;
   }
 });
