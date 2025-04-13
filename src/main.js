@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const searchInput = document.getElementById('search-input');
-  const searchButton = document.getElementById('search-button');
-  const animeListElement = document.getElementById('anime-list');
-  const animeDetailsElement = document.getElementById('anime-details');
+  const searchInput = document.querySelector('.search-input');
+  const searchButton = document.querySelector('.search-button');
+  const animeListElement = document.querySelector('#anime-list');
+  const animeDetailsElement = document.querySelector('#anime-details');
 
   searchButton.addEventListener('click', () => {
     const variables = {
@@ -120,5 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <p><strong>Средний рейтинг:</strong> ${anime.averageScore || 'Нет данных'}</p>
       </div>
     `;
+    animeDetailsElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
 });
